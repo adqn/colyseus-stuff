@@ -39,18 +39,34 @@ export const StateHandlerRoom = () => {
 
       const players: Players = {};
       const items: Items = {};
+      const distLines: any = {};
       const colors = ["red", "green", "yellow", "blue", "cyan", "magenta"];
 
       // add items
       room.state.items.onAdd = function (item: Item, itemId: string) {
-        let dom = document.createElement("div");
+        const dom = document.createElement("div");
         console.log(itemId);
         dom.className = "item";
         dom.style.left = item.x + "px";
         dom.style.top = item.y + "px";
 
         items[itemId] = dom;
-        document.body.appendChild(dom);
+        document.getElementById("screen")?.appendChild(dom);
+
+        const distLine = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "line"
+        );
+        distLine.setAttribute("stroke", "lightgreen");
+        distLine.setAttribute("stroke-width", "2");
+        distLine.setAttribute("fill-opacity", ".2");
+        distLine.setAttribute("x1", "0");
+        distLine.setAttribute("y1", "0");
+        distLine.setAttribute("x2", "0");
+        distLine.setAttribute("y2", "0");
+
+        document.getElementById("overlay")?.appendChild(distLine);
+        distLines[itemId] = distLine;
       };
 
       // listen to patches coming from the server
@@ -69,7 +85,7 @@ export const StateHandlerRoom = () => {
         };
 
         players[sessionId] = dom;
-        document.body.appendChild(dom);
+        document.getElementById("screen")?.appendChild(dom);
       };
 
       room.state.players.onRemove = function (
@@ -84,6 +100,8 @@ export const StateHandlerRoom = () => {
         console.log(message);
       });
 
+      drawCenterLines(players, items, distLines);
+
       window.addEventListener("keydown", function (e) {
         if (e.which === 38) {
           up();
@@ -95,24 +113,23 @@ export const StateHandlerRoom = () => {
           left();
         }
 
+        drawCenterLines(players, items, distLines);
+
         Object.keys(players).forEach((player) => {
           if (Object.keys(items).length > 0) {
             Object.keys(items).forEach((item) => {
-              const playerPos = {
-                top: parseInt(players[player].style.top),
-                left: parseInt(players[player].style.left),
-                height: parseInt(players[player].offsetHeight),
-                width: parseInt(players[player].offsetWidth),
-              };
-
-              const objPos = {
-                top: parseInt(items[item].style.top),
-                left: parseInt(items[item].style.left),
-                height: parseInt(items[item].offsetHeight),
-                width: parseInt(items[item].offsetWidth),
-              };
-
-              console.log(distance(playerPos, objPos));
+              // const playerPos = {
+              //   top: parseInt(players[player].style.top),
+              //   left: parseInt(players[player].style.left),
+              //   height: parseInt(players[player].offsetHeight),
+              //   width: parseInt(players[player].offsetWidth),
+              // };
+              // const objPos = {
+              //   top: parseInt(items[item].style.top),
+              //   left: parseInt(items[item].style.left),
+              //   height: parseInt(items[item].offsetHeight),
+              //   width: parseInt(items[item].offsetWidth),
+              // };
               // if (checkCollision(playerPos, objPos)) {
               //   console.log("item collected");
               //   room.send("collect_item", item);
@@ -135,12 +152,42 @@ export const StateHandlerRoom = () => {
     }
   }
 
-  function distance(obj1: Object, obj2: Object) {
-    return {
-      x: Math.abs(obj2.left - (obj1.left + obj1.width)),
-      y: Math.abs(obj2.top + obj2.height - obj1.top),
-    };
+  function getCenter(obj: Object) {
+    const x = obj.left + obj.width / 2;
+    const y = obj.top + obj.height / 2;
+
+    return { x, y };
   }
+
+  const drawCenterLines = (players: Players, items: Items, distLines: any) => {
+    Object.keys(players).forEach((player: string) => {
+      if (Object.keys(items).length > 0) {
+        Object.keys(items).forEach((item) => {
+          const playerPos = {
+            top: parseInt(players[player].style.top),
+            left: parseInt(players[player].style.left),
+            height: parseInt(players[player].offsetHeight),
+            width: parseInt(players[player].offsetWidth),
+          };
+
+          const objPos = {
+            top: parseInt(items[item].style.top),
+            left: parseInt(items[item].style.left),
+            height: parseInt(items[item].offsetHeight),
+            width: parseInt(items[item].offsetWidth),
+          };
+
+          const playerCenter = getCenter(playerPos);
+          const objCenter = getCenter(objPos);
+
+          distLines[item].setAttribute("x1", objCenter.x);
+          distLines[item].setAttribute("x2", playerCenter.x);
+          distLines[item].setAttribute("y1", objCenter.y);
+          distLines[item].setAttribute("y2", playerCenter.y);
+        });
+      }
+    });
+  };
 
   function up() {
     room.send("move", { y: -1 });
@@ -158,7 +205,11 @@ export const StateHandlerRoom = () => {
     room.send("move", { x: -1 });
   }
 
-  return <div></div>;
+  return (
+    <div id="screen">
+      <svg id="overlay" width="100%" height="100%" />
+    </div>
+  );
 };
 
 const GameObject = styled.div`
